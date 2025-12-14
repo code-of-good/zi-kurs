@@ -1,4 +1,21 @@
 {
-  "name": "ZI-KURS",
-  "packageManager": "yarn@4.4.1"
+  "name": "zkp-hamiltonian-cycle",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "yarn@4.9.4+sha512.7b1cb0b62abba6a537b3a2ce00811a843bea02bcf53138581a6ae5b1bf563f734872bd47de49ce32a9ca9dcaff995aa789577ffb16811da7c603dcf69e73750b"
 }
