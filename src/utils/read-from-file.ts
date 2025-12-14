@@ -1,7 +1,6 @@
 import { readFile } from "fs/promises";
-import { join } from "path";
 
-type readFromFileType = {
+export type CreateGraphType = {
   vertexCount: number;
   edgeCount: number;
   edges: number[][];
@@ -9,7 +8,7 @@ type readFromFileType = {
 
 export const readFromFile = async (
   filePath: string
-): Promise<readFromFileType> => {
+): Promise<CreateGraphType> => {
   const content = await readFile(filePath, "utf-8");
   const lines: string[][] = content
     .trim()

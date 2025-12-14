@@ -1,3 +1,5 @@
+import type { CreateGraphType } from "../utils/read-from-file.js";
+
 /**
  * Представление неориентированного графа
  */
@@ -5,13 +7,29 @@ export class Graph {
   private adjacencyList: Map<number, Set<number>>;
   private edgesList: Array<[number, number]>;
 
-  constructor(n: number) {
+  constructor(input: CreateGraphType) {
     this.adjacencyList = new Map();
     this.edgesList = [];
 
+    const { vertexCount, edges: inputEdges } = input;
+
     // Инициализируем список смежности для всех вершин
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < vertexCount; i++) {
       this.adjacencyList.set(i, new Set());
+    }
+
+    // Конвертируем number[][] в [number, number][] и из 1-indexed в 0-indexed
+    const edges: Array<[number, number]> = inputEdges
+      .filter((edge: number[]) => edge.length >= 2)
+      .map((edge: number[]) => {
+        const u = (edge[0] ?? 0) - 1; // 1-indexed -> 0-indexed
+        const v = (edge[1] ?? 0) - 1;
+        return (u < v ? [u, v] : [v, u]) as [number, number];
+      });
+
+    // Добавляем рёбра
+    for (const [u, v] of edges) {
+      this.addEdge(u, v);
     }
   }
 
@@ -84,13 +102,16 @@ export class Graph {
    */
   clone(): Graph {
     const n = this.getVertexCount();
-    const newGraph = new Graph(n);
+    // Конвертируем рёбра из 0-indexed в 1-indexed для CreateGraphType
+    const edges = this.edgesList.map(
+      ([u, v]) => [u + 1, v + 1] as [number, number]
+    );
 
-    for (const [u, v] of this.edgesList) {
-      newGraph.addEdge(u, v);
-    }
-
-    return newGraph;
+    return new Graph({
+      vertexCount: n,
+      edgeCount: edges.length,
+      edges: edges.map(([u, v]) => [u, v]),
+    });
   }
 
   /**
@@ -194,9 +215,8 @@ export class Graph {
       throw new Error(`n must be < 1001, got ${n}`);
     }
 
-    const graph = new Graph(n);
-
     // Парсим рёбра
+    const edges: number[][] = [];
     for (let i = 1; i <= m && i < data.length; i++) {
       const line = data[i];
       if (!line || line.length < 2) {
@@ -216,19 +236,20 @@ export class Graph {
         throw new Error(`Invalid edge at line ${i + 1}: ${line.join(" ")}`);
       }
 
-      // Вершины в файле могут быть 1-indexed, конвертируем в 0-indexed
-      const u0 = u - 1;
-      const v0 = v - 1;
-
-      if (u0 < 0 || u0 >= n || v0 < 0 || v0 >= n) {
+      // Вершины в файле 1-indexed, оставляем как есть для CreateGraphType
+      if (u < 1 || u > n || v < 1 || v > n) {
         throw new Error(
           `Edge out of range at line ${i + 1}: vertices ${u}, ${v} (n=${n})`
         );
       }
 
-      graph.addEdge(u0, v0);
+      edges.push([u, v]);
     }
 
-    return graph;
+    return new Graph({
+      vertexCount: n,
+      edgeCount: edges.length,
+      edges,
+    });
   }
 }
