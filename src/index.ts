@@ -2,6 +2,7 @@ import { filePath } from "./constants/path.js";
 import { Graph } from "./models/graph.js";
 import { readFromFile } from "./utils/read-from-file.js";
 import { Prover } from "./roles/prover.js";
+import { Verifier } from "./roles/verifier.js";
 import { isValidHamiltonianCycle } from "./models/hamiltonian-cycle.js";
 
 const main = async () => {
@@ -73,37 +74,44 @@ const main = async () => {
   }
   console.log();
 
-  // 7. Демонстрация generateProof (k раундов)
-  console.log("7. Генерация полного доказательства (k=3 раунда)...");
-  const challenges: (0 | 1)[] = [0, 1, 0]; // Verifier выбирает challenges
-  const proof = prover.generateProof(3, challenges);
-  console.log(`   Сгенерировано ${proof.k} раундов доказательства`);
+  // 7. Полный протокол ZKP с Verifier
+  console.log("7. Полный протокол ZKP с Verifier");
+  console.log("=".repeat(60));
 
-  proof.rounds.forEach((round, i) => {
-    console.log(`   Раунд ${i + 1}:`);
-    console.log(
-      `     Challenge: ${
-        round.response.type === 0 ? "0 (показать π)" : "1 (показать цикл)"
-      }`
-    );
-    console.log(`     Коммит: ${round.commitment.hash.substring(0, 16)}...`);
-    if (round.response.type === 0) {
-      console.log(`     Ответ: перестановка и все рёбра G'`);
-    } else {
-      console.log(
-        `     Ответ: только рёбра цикла (${round.response.cycleEdges.length} рёбер)`
-      );
-    }
-  });
+  // Создаем Verifier
+  const verifier = new Verifier(graph);
+  console.log("\nVerifier создан (знает граф G, но не знает цикл)");
+
+  // Verifier генерирует challenges
+  const k = 5; // Количество раундов
+  const challenges: (0 | 1)[] = [];
+  for (let i = 0; i < k; i++) {
+    challenges.push(verifier.generateChallenge());
+  }
+  console.log(`\nVerifier выбрал ${k} challenges: ${challenges.join(", ")}`);
+  console.log("  (0 = показать перестановку, 1 = показать цикл)");
+
+  // Prover генерирует доказательство
+  console.log("\nProver генерирует доказательство...");
+  const proof = prover.generateProof(k, challenges);
+
+  // Verifier проверяет доказательство
+  console.log("\n" + "=".repeat(60));
+  const proofIsValid = verifier.verifyProof(proof, graph);
+
+  console.log(`\n${"=".repeat(60)}`);
+  console.log("ФИНАЛЬНЫЙ РЕЗУЛЬТАТ");
+  console.log("=".repeat(60));
+  if (proofIsValid) {
+    console.log(`\n✓ ДОКАЗАТЕЛЬСТВО ПРИНЯТО!`);
+    console.log(`  Prover успешно доказал знание гамильтонова цикла`);
+    console.log(`  Вероятность обмана: 2^(-${k}) = ${Math.pow(2, -k)}`);
+    console.log(`  Verifier НЕ узнал исходный цикл (zero-knowledge) ✓`);
+  } else {
+    console.log(`\n✗ ДОКАЗАТЕЛЬСТВО ОТКЛОНЕНО!`);
+    console.log(`  Prover не смог доказать знание цикла`);
+  }
   console.log();
-
-  console.log("=== Демо завершено ===");
-  console.log(
-    "\nПримечание: Verifier еще не реализован, поэтому проверка коммитов не выполняется."
-  );
-  console.log(
-    "Следующий шаг: реализовать Verifier для полной проверки доказательства."
-  );
 };
 
 main().catch(console.error);

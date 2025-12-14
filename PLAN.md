@@ -106,7 +106,7 @@
   - Принимает массив challenges длины k
   - Для каждого раунда: создает коммит, получает challenge из массива, формирует response
 
-### 6. Verifier (`src/verifier.ts`) ⏳
+### 6. Verifier (`src/roles/verifier.ts`) ✅
 
 Класс `Verifier`:
 
@@ -175,8 +175,8 @@
 4. ✅ Реализовать систему коммитов (`src/utils/commitment.ts`)
 5. ✅ Реализовать работу с перестановками (`src/utils/permutation.ts`)
 6. ✅ Реализовать Prover (`src/prover.ts`)
-7. ⏳ Реализовать Verifier (`src/verifier.ts`)
-8. ⏳ Интегрировать всё в main (`src/index.ts`)
+7. ✅ Реализовать Verifier (`src/roles/verifier.ts`)
+8. ✅ Интегрировать всё в main (`src/index.ts`)
 9. ⏳ Тестирование на примерах
 
 ## Файлы для создания
@@ -193,6 +193,8 @@ src/
 │   ├── commitment.ts ✅
 │   └── permutation.ts ✅
 ├── prover.ts ✅
-├── verifier.ts ⏳
-└── index.ts ⏳ (обновить)
+├── roles/
+│   ├── prover.ts ✅
+│   └── verifier.ts ✅
+└── index.ts ✅ (обновлен)
 ```
