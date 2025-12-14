@@ -14,120 +14,151 @@
 
 ## Структура реализации
 
-### 1. Модели данных (`src/models/`)
+### 1. Модели данных (`src/models/`) ✅
 
-#### `graph.ts`
+#### `graph.ts` ✅
 
 - Класс `Graph`:
-  - `n: number` - количество вершин
-  - `m: number` - количество рёбер
   - `adjacencyList: Map<number, Set<number>>` - список смежности
-  - `edges: Array<[number, number]>` - список рёбер
+  - `edgesList: Array<[number, number]>` - список рёбер
   - Методы:
-    - `hasEdge(u: number, v: number): boolean`
-    - `getNeighbors(v: number): Set<number>`
-    - `isValidHamiltonianCycle(cycle: number[]): boolean`
-    - `static fromFileData(data: string[][]): Graph`
+    - `hasEdge(u: number, v: number): boolean` ✅
+    - `getNeighbors(v: number): Set<number>` ✅
+    - `getVertexCount(): number` ✅
+    - `getEdgeCount(): number` ✅
+    - `getEdges(): Array<[number, number]>` ✅
+    - `clone(): Graph` ✅
+    - `isIsomorphicTo(other: Graph, permutation: number[]): boolean` ✅
 
-#### `hamiltonian-cycle.ts`
+#### `hamiltonian-cycle.ts` ✅
 
-- Тип `HamiltonianCycle = number[]` - массив вершин, образующих цикл
-- Функция валидации цикла
+- Тип `HamiltonianCycle = number[]` ✅
+- Функция `isValidHamiltonianCycle(cycle: HamiltonianCycle, graph: Graph): boolean` ✅
 
-#### `zkp-types.ts`
+#### `zkp-types.ts` ✅
 
-- `Commitment` - структура коммита (hash + дополнительные данные)
-- `ProofRound` - данные одного раунда доказательства
-- `ZKPProof` - полное доказательство (k раундов)
-- `Challenge` - тип вызова (0 или 1)
+- `Challenge = 0 | 1` ✅
+- `Commitment` (hash + salt) ✅
+- `ProofRound` ✅
+- `ProofResponse` ✅
+- `ZKPProof` ✅
 
-### 2. Парсинг графа (`src/utils/graph-parser.ts`)
+### 2. Парсинг графа ✅
 
-- `parseGraphFile(data: string[][]): Graph`
-  - Парсит формат: первая строка n m, затем m строк с рёбрами
-- `parseHamiltonianCycle(data: string[][]): number[]`
-  - Парсит гамильтонов цикл (из отдельного файла или той же структуры)
+- `readFromFile(filePath: string): Promise<CreateGraphType>` ✅
+  - Читает файл и парсит формат: первая строка n m, затем m строк с рёбрами
+  - Возвращает структурированные данные для конструктора Graph
+- Конструктор `Graph(input: CreateGraphType)` ✅
+  - Создает граф из распарсенных данных
 
-### 3. Криптографические коммиты (`src/utils/commitment.ts`)
+### 3. Криптографические коммиты (`src/utils/commitment.ts`) ✅
 
-Используем схему коммита на основе хеширования:
+Используем схему коммита на основе хеширования (SHA-256):
 
 - `createCommitment(data: string): Commitment`
   - Создает коммит к данным (использует crypto.createHash)
-  - Возвращает hash + salt для открытия
+  - Генерирует случайный salt и хеширует data + salt
+  - Возвращает hash + salt
 - `openCommitment(commitment: Commitment, data: string): boolean`
   - Проверяет, что коммит соответствует данным
+  - Вычисляет hash(data + salt) и сравнивает с commitment.hash
 - `commitToGraph(graph: Graph, permutation: number[]): Commitment`
-  - Коммитит к перестановленному графу
+  - Сериализует перестановленный граф в строку
+  - Коммитит к перестановленному графу G'
 - `commitToPermutation(permutation: number[]): Commitment`
-  - Коммитит к перестановке
+  - Сериализует перестановку в строку
+  - Коммитит к перестановке π
 
-### 4. Перестановки (`src/utils/permutation.ts`)
+### 4. Перестановки (`src/utils/permutation.ts`) ✅
 
 - `generateRandomPermutation(n: number): number[]`
   - Генерирует случайную перестановку вершин [0..n-1]
-- `applyPermutation<T>(arr: T[], perm: number[]): T[]`
-  - Применяет перестановку к массиву
+  - Использует crypto.randomBytes для криптографически стойкого ГСЧ
 - `applyPermutationToGraph(graph: Graph, perm: number[]): Graph`
-  - Создает новый граф с переставленными вершинами
+  - Создает новый граф G' = π(G) с переставленными вершинами
+  - Для каждого ребра (u, v) в G создает ребро (π(u), π(v)) в G'
 - `applyPermutationToCycle(cycle: number[], perm: number[]): number[]`
-  - Применяет перестановку к циклу
+  - Применяет перестановку к циклу: для каждой вершины v в cycle возвращает π(v)
 - `inversePermutation(perm: number[]): number[]`
-  - Вычисляет обратную перестановку
+  - Вычисляет обратную перестановку π^(-1)
+  - Используется в Graph.isIsomorphicTo для проверки изоморфизма
 
-### 5. Prover (`src/prover.ts`)
+### 5. Prover (`src/prover.ts`) ⏳
 
 Класс `Prover`:
 
 - `constructor(graph: Graph, hamiltonianCycle: number[])`
+  - Сохраняет оригинальный граф и гамильтонов цикл
 - `generateCommitment(): { permutedGraph: Graph, permutation: number[], commitment: Commitment }`
-  - Генерирует случайную перестановку, переставляет граф, создает коммит
-- `respondToChallenge(challenge: Challenge, permutedGraph: Graph, permutation: number[]): ProofRound`
-  - Challenge 0: возвращает перестановку и доказывает, что G' = π(G)
-  - Challenge 1: возвращает только рёбра цикла в переставленном графе
+  - Генерирует случайную перестановку π
+  - Создает перестановленный граф G' = π(G)
+  - Создает коммит к G' (commitToGraph)
+  - Возвращает все три значения
+- `respondToChallenge(challenge: Challenge, permutedGraph: Graph, permutation: number[]): ProofResponse`
+  - Challenge 0: возвращает `{ type: 0, permutation, permutedGraphEdges }`
+    - Открывает перестановку π
+    - Открывает все рёбра перестановленного графа G'
+  - Challenge 1: возвращает `{ type: 1, cycleEdges }`
+    - Применяет перестановку к циклу: cycle' = π(cycle)
+    - Возвращает только рёбра цикла в G' (без раскрытия π)
 - `generateProof(k: number): ZKPProof`
   - Генерирует k раундов доказательства
+  - Для каждого раунда: создает коммит, получает challenge от verifier, формирует response
 
-### 6. Verifier (`src/verifier.ts`)
+### 6. Verifier (`src/verifier.ts`) ⏳
 
 Класс `Verifier`:
 
 - `constructor(graph: Graph)`
+  - Сохраняет оригинальный граф G
 - `generateChallenge(): Challenge`
-  - Случайно выбирает 0 или 1
+  - Случайно выбирает 0 или 1 (использует crypto.randomBytes)
 - `verifyRound(proofRound: ProofRound, originalGraph: Graph): boolean`
-  - Challenge 0: проверяет, что G' = π(G)
-  - Challenge 1: проверяет, что показанные рёбра образуют гамильтонов цикл в G'
+  - Проверяет коммит (openCommitment)
+  - Challenge 0:
+    1. Проверяет, что перестановка валидна (биекция [0..n-1])
+    2. Восстанавливает G' из permutedGraphEdges
+    3. Проверяет, что G' = π(G) через Graph.isIsomorphicTo
+  - Challenge 1:
+    1. Восстанавливает граф G' из коммита (если нужно) или использует сохраненный
+    2. Проверяет, что cycleEdges образуют валидный гамильтонов цикл в G'
+    3. Использует isValidHamiltonianCycle для проверки
 - `verifyProof(proof: ZKPProof, originalGraph: Graph): boolean`
-  - Проверяет все k раундов
+  - Проверяет, что proof.k === proof.rounds.length
+  - Проверяет все k раундов через verifyRound
+  - Возвращает true только если все раунды прошли проверку
 
-### 7. Главный файл (`src/index.ts`)
+### 7. Главный файл (`src/index.ts`) ⏳
 
 Обновить для демонстрации протокола:
 
-- Загрузка графа из файла
-- Загрузка гамильтонова цикла
+- Загрузка графа из файла (уже есть через readFromFile)
+- Загрузка гамильтонова цикла (из файла или хардкод для теста)
 - Создание Prover и Verifier
-- Запуск протокола с k раундами
-- Вывод результатов
+- Запуск протокола с k раундами (например, k=20)
+- Вывод результатов (успех/неудача верификации)
 
 ## Детали реализации
 
 ### Challenge 0 (Показать перестановку)
 
-- Prover открывает коммит к перестановке
+- Prover открывает:
+  - Перестановку π
+  - Все рёбра перестановленного графа G'
 - Verifier проверяет:
-  1. Коммит корректен
-  2. G' действительно равен π(G)
-  3. Перестановка валидна (биекция)
+  1. Коммит корректен (openCommitment)
+  2. Перестановка валидна (биекция [0..n-1])
+  3. G' действительно равен π(G) через Graph.isIsomorphicTo
 
 ### Challenge 1 (Показать цикл)
 
-- Prover открывает только рёбра гамильтонова цикла в G'
+- Prover открывает:
+  - Только рёбра гамильтонова цикла в G' (без раскрытия π)
 - Verifier проверяет:
-  1. Показанные рёбра образуют цикл длины n
-  2. Все рёбра существуют в G'
-  3. НЕ раскрывается перестановка π
+  1. Коммит корректен (openCommitment для G')
+  2. Показанные рёбра образуют валидный гамильтонов цикл длины n в G'
+  3. Использует isValidHamiltonianCycle для проверки
+  4. НЕ раскрывается перестановка π (только рёбра цикла)
 
 ### Безопасность
 
@@ -137,29 +168,30 @@
 
 ## Порядок реализации
 
-1. ✅ Базовые криптографические утилиты (уже есть)
-2. ✅ Создать модели данных (Graph, типы для ZKP)
-3. Реализовать парсер графа
-4. Реализовать систему коммитов
-5. Реализовать работу с перестановками
-6. Реализовать Prover
-7. Реализовать Verifier
-8. Интегрировать всё в main
-9. Тестирование на примерах
+1. ✅ Базовые криптографические утилиты (crypto.ts - есть, но для других целей)
+2. ✅ Модели данных (Graph, HamiltonianCycle, ZKP типы)
+3. ✅ Парсинг графа (readFromFile + конструктор Graph)
+4. ✅ Реализовать систему коммитов (`src/utils/commitment.ts`)
+5. ✅ Реализовать работу с перестановками (`src/utils/permutation.ts`)
+6. ⏳ Реализовать Prover (`src/prover.ts`)
+7. ⏳ Реализовать Verifier (`src/verifier.ts`)
+8. ⏳ Интегрировать всё в main (`src/index.ts`)
+9. ⏳ Тестирование на примерах
 
 ## Файлы для создания
 
 ```
 src/
-├── models/
-│   ├── graph.ts
-│   ├── hamiltonian-cycle.ts
-│   └── zkp-types.ts
+├── models/ ✅
+│   ├── graph.ts ✅
+│   ├── hamiltonian-cycle.ts ✅
+│   └── zkp-types.ts ✅
 ├── utils/
-│   ├── graph-parser.ts
-│   ├── commitment.ts
-│   └── permutation.ts
-├── prover.ts
-├── verifier.ts
-└── index.ts (обновить)
+│   ├── read-from-file.ts ✅
+│   ├── crypto.ts ✅ (но для других целей)
+│   ├── commitment.ts ✅
+│   └── permutation.ts ✅
+├── prover.ts ⏳
+├── verifier.ts ⏳
+└── index.ts ⏳ (обновить)
 ```
