@@ -91,7 +91,6 @@ export class Verifier {
 
       // 1. Проверяем, что перестановка валидна
       if (!this.isValidPermutation(permutation, n)) {
-        console.error("  ✗ Перестановка невалидна");
         return false;
       }
 
@@ -105,13 +104,11 @@ export class Verifier {
       // Сериализуем граф так же, как в commitToGraph
       const serialized = this.serializeGraph(permutedGraph);
       if (!openCommitment(commitment, serialized)) {
-        console.error("  ✗ Коммит не соответствует графу G'");
         return false;
       }
 
       // 4. Проверяем, что G' = π(G) через изоморфизм
       if (!originalGraph.isIsomorphicTo(permutedGraph, permutation)) {
-        console.error("  ✗ G' не изоморфен π(G)");
         return false;
       }
 
@@ -123,20 +120,15 @@ export class Verifier {
       // 1. Проверяем, что показано правильное количество рёбер
       // Для гамильтонова цикла в графе с n вершинами должно быть n рёбер
       if (cycleEdges.length !== n) {
-        console.error(
-          `  ✗ Неправильное количество рёбер: ${cycleEdges.length}, ожидается ${n}`
-        );
         return false;
       }
 
       // 2. Проверяем, что все рёбра валидны (вершины в диапазоне [0..n-1])
       for (const [u, v] of cycleEdges) {
         if (u < 0 || u >= n || v < 0 || v >= n) {
-          console.error(`  ✗ Ребро вне диапазона: (${u}, ${v})`);
           return false;
         }
         if (u === v) {
-          console.error(`  ✗ Self-loop недопустим: (${u}, ${v})`);
           return false;
         }
       }
@@ -150,15 +142,11 @@ export class Verifier {
       // Строим цикл, начиная с первого ребра
       const cycle = this.edgesToCycle(cycleEdges, n);
       if (cycle === null) {
-        console.error("  ✗ Рёбра не образуют цикл");
         return false;
       }
 
       // 5. Проверяем, что это валидный гамильтонов цикл
       if (!isValidHamiltonianCycle(cycle, cycleGraph)) {
-        console.error(
-          "  ✗ Показанные рёбра не образуют валидный гамильтонов цикл"
-        );
         return false;
       }
 
@@ -258,42 +246,21 @@ export class Verifier {
   verifyProof(proof: ZKPProof, originalGraph: Graph): boolean {
     // Проверяем, что количество раундов соответствует k
     if (proof.rounds.length !== proof.k) {
-      console.error(
-        `Количество раундов (${proof.rounds.length}) не соответствует k (${proof.k})`
-      );
       return false;
     }
-
-    console.log(`\nПроверка доказательства (${proof.k} раундов)...`);
 
     // Проверяем каждый раунд
     for (let i = 0; i < proof.rounds.length; i++) {
       const round = proof.rounds[i];
       if (!round) {
-        console.error(`Раунд ${i + 1} отсутствует`);
         return false;
       }
-
-      const challengeType = round.response.type;
-      console.log(
-        `\nРаунд ${i + 1}: Challenge ${challengeType} ${
-          challengeType === 0 ? "(показать перестановку)" : "(показать цикл)"
-        }`
-      );
 
       const isValid = this.verifyRound(round, originalGraph);
       if (!isValid) {
-        console.error(`  ✗ Раунд ${i + 1} не прошел проверку`);
         return false;
       }
-
-      console.log(`  ✓ Раунд ${i + 1} прошел проверку`);
     }
-
-    console.log(`\n✓ Все ${proof.k} раундов прошли проверку!`);
-    console.log(
-      `  Вероятность обмана: 2^(-${proof.k}) = ${Math.pow(2, -proof.k)}`
-    );
 
     return true;
   }
