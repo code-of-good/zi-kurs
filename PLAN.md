@@ -83,7 +83,7 @@
   - Вычисляет обратную перестановку π^(-1)
   - Используется в Graph.isIsomorphicTo для проверки изоморфизма
 
-### 5. Prover (`src/prover.ts`) ⏳
+### 5. Prover (`src/prover.ts`) ✅
 
 Класс `Prover`:
 
@@ -101,9 +101,10 @@
   - Challenge 1: возвращает `{ type: 1, cycleEdges }`
     - Применяет перестановку к циклу: cycle' = π(cycle)
     - Возвращает только рёбра цикла в G' (без раскрытия π)
-- `generateProof(k: number): ZKPProof`
+- `generateProof(k: number, challenges: Challenge[]): ZKPProof`
   - Генерирует k раундов доказательства
-  - Для каждого раунда: создает коммит, получает challenge от verifier, формирует response
+  - Принимает массив challenges длины k
+  - Для каждого раунда: создает коммит, получает challenge из массива, формирует response
 
 ### 6. Verifier (`src/verifier.ts`) ⏳
 
@@ -173,7 +174,7 @@
 3. ✅ Парсинг графа (readFromFile + конструктор Graph)
 4. ✅ Реализовать систему коммитов (`src/utils/commitment.ts`)
 5. ✅ Реализовать работу с перестановками (`src/utils/permutation.ts`)
-6. ⏳ Реализовать Prover (`src/prover.ts`)
+6. ✅ Реализовать Prover (`src/prover.ts`)
 7. ⏳ Реализовать Verifier (`src/verifier.ts`)
 8. ⏳ Интегрировать всё в main (`src/index.ts`)
 9. ⏳ Тестирование на примерах
@@ -191,7 +192,7 @@ src/
 │   ├── crypto.ts ✅ (но для других целей)
 │   ├── commitment.ts ✅
 │   └── permutation.ts ✅
-├── prover.ts ⏳
+├── prover.ts ✅
 ├── verifier.ts ⏳
 └── index.ts ⏳ (обновить)
 ```
