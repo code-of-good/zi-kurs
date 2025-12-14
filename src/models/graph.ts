@@ -18,16 +18,17 @@ export class Graph {
       this.adjacencyList.set(i, new Set());
     }
 
-    // Конвертируем number[][] в [number, number][] и из 1-indexed в 0-indexed
+    // Конвертируем number[][] в [number, number][] (вершины уже 0-indexed)
+    // Нормализация порядка произойдёт в addEdge
     const edges: Array<[number, number]> = inputEdges
       .filter((edge: number[]) => edge.length >= 2)
       .map((edge: number[]) => {
-        const u = (edge[0] ?? 0) - 1; // 1-indexed -> 0-indexed
-        const v = (edge[1] ?? 0) - 1;
-        return (u < v ? [u, v] : [v, u]) as [number, number];
+        const u = edge[0] ?? 0;
+        const v = edge[1] ?? 0;
+        return [u, v];
       });
 
-    // Добавляем рёбра
+    // Добавляем рёбра (addEdge сам нормализует порядок)
     for (const [u, v] of edges) {
       this.addEdge(u, v);
     }
@@ -102,10 +103,8 @@ export class Graph {
    */
   clone(): Graph {
     const n = this.getVertexCount();
-    // Конвертируем рёбра из 0-indexed в 1-indexed для CreateGraphType
-    const edges = this.edgesList.map(
-      ([u, v]) => [u + 1, v + 1] as [number, number]
-    );
+    // Рёбра уже в 0-indexed формате
+    const edges = this.edgesList.map(([u, v]) => [u, v] as [number, number]);
 
     return new Graph({
       vertexCount: n,
@@ -182,74 +181,5 @@ export class Graph {
       inv[permValue] = i;
     }
     return inv;
-  }
-
-  /**
-   * Создает граф из данных файла
-   * Формат: первая строка - n m, затем m строк с рёбрами
-   */
-  static fromFileData(data: string[][]): Graph {
-    if (data.length === 0) {
-      throw new Error("Empty file data");
-    }
-
-    const firstLine = data[0];
-    if (!firstLine || firstLine.length < 2) {
-      throw new Error("First line must contain n and m");
-    }
-
-    const nStr = firstLine[0];
-    const mStr = firstLine[1];
-    if (!nStr || !mStr) {
-      throw new Error("First line must contain n and m");
-    }
-
-    const n = parseInt(nStr, 10);
-    const m = parseInt(mStr, 10);
-
-    if (isNaN(n) || isNaN(m) || n < 0 || m < 0) {
-      throw new Error(`Invalid n or m: n=${nStr}, m=${mStr}`);
-    }
-
-    if (n >= 1001) {
-      throw new Error(`n must be < 1001, got ${n}`);
-    }
-
-    // Парсим рёбра
-    const edges: number[][] = [];
-    for (let i = 1; i <= m && i < data.length; i++) {
-      const line = data[i];
-      if (!line || line.length < 2) {
-        throw new Error(`Edge line ${i} must contain two vertices`);
-      }
-
-      const uStr = line[0];
-      const vStr = line[1];
-      if (!uStr || !vStr) {
-        throw new Error(`Edge line ${i} must contain two vertices`);
-      }
-
-      const u = parseInt(uStr, 10);
-      const v = parseInt(vStr, 10);
-
-      if (isNaN(u) || isNaN(v)) {
-        throw new Error(`Invalid edge at line ${i + 1}: ${line.join(" ")}`);
-      }
-
-      // Вершины в файле 1-indexed, оставляем как есть для CreateGraphType
-      if (u < 1 || u > n || v < 1 || v > n) {
-        throw new Error(
-          `Edge out of range at line ${i + 1}: vertices ${u}, ${v} (n=${n})`
-        );
-      }
-
-      edges.push([u, v]);
-    }
-
-    return new Graph({
-      vertexCount: n,
-      edgeCount: edges.length,
-      edges,
-    });
   }
 }
