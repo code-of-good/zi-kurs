@@ -1,17 +1,17 @@
-import type { Graph } from "./models/graph.js";
+import type { Graph } from "../models/graph.js";
 import type {
   Challenge,
   Commitment,
   ProofResponse,
   ProofRound,
   ZKPProof,
-} from "./models/zkp-types.js";
-import { commitToGraph } from "./utils/commitment.js";
+} from "../models/zkp-types.js";
+import { commitToGraph } from "../utils/commitment.js";
 import {
   generateRandomPermutation,
   applyPermutationToGraph,
   applyPermutationToCycle,
-} from "./utils/permutation.js";
+} from "../utils/permutation.js";
 
 /**
  * Prover в протоколе ZKP для гамильтонова цикла
