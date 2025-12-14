@@ -20,6 +20,13 @@ const main = async () => {
     return;
   }
 
+  // Выводим информацию о графе
+  console.log(
+    `Граф: ${graph.getVertexCount()} вершин, ${graph.getEdgeCount()} рёбер`
+  );
+  console.log(`Известный доказывающему цикл: [${hamiltonianCycle.join(", ")}]`);
+  console.log();
+
   // 3. Создаем Prover
   const prover = new Prover(graph, hamiltonianCycle);
 
@@ -42,16 +49,30 @@ const main = async () => {
     challenges.push(verifier.generateChallenge());
   }
 
+  // Выводим параметры протокола
+  console.log(
+    `Параметры протокола: ${k} раундов (вероятность обмана: 1/2^${k} ≈ ${Math.pow(
+      2,
+      -k
+    )})`
+  );
+
+  console.log();
+
   // Prover генерирует доказательство
   const proof = prover.generateProof(k, challenges);
 
   // Verifier проверяет доказательство
-  const proofIsValid = verifier.verifyProof(proof, graph);
+  const result = verifier.verifyProof(proof, graph);
 
-  if (proofIsValid) {
-    console.log(`✓ ДОКАЗАТЕЛЬСТВО ПРИНЯТО!`);
+  // Выводим финальный результат
+  console.log();
+  if (result.valid) {
+    console.log("РЕЗУЛЬТАТ: Доказательство ПРИНЯТО");
   } else {
-    console.log(`✗ ДОКАЗАТЕЛЬСТВО ОТКЛОНЕНО!`);
+    console.log(
+      `РЕЗУЛЬТАТ: Доказательство ОТВЕРГНУТО на раунде ${result.failedRound}`
+    );
   }
 };
 

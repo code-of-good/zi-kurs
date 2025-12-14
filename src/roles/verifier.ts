@@ -76,9 +76,14 @@ export class Verifier {
    * Проверяет один раунд доказательства
    * @param proofRound - Данные раунда (коммит + ответ)
    * @param originalGraph - Оригинальный граф G
-   * @returns true, если раунд прошел проверку
+   * @param roundNumber - Номер раунда (для логирования)
+   * @returns объект с результатом проверки и типом ошибки (если есть)
    */
-  verifyRound(proofRound: ProofRound, originalGraph: Graph): boolean {
+  verifyRound(
+    proofRound: ProofRound,
+    originalGraph: Graph,
+    roundNumber: number
+  ): { valid: boolean; errorType?: string } {
     const { commitment, response } = proofRound;
     const n = originalGraph.getVertexCount();
 
@@ -91,7 +96,10 @@ export class Verifier {
 
       // 1. Проверяем, что перестановка валидна
       if (!this.isValidPermutation(permutation, n)) {
-        return false;
+        return {
+          valid: false,
+          errorType: "Перестановка невалидна",
+        };
       }
 
       // 2. Восстанавливаем G' из рёбер
@@ -104,15 +112,21 @@ export class Verifier {
       // Сериализуем граф так же, как в commitToGraph
       const serialized = this.serializeGraph(permutedGraph);
       if (!openCommitment(commitment, serialized)) {
-        return false;
+        return {
+          valid: false,
+          errorType: "Коммит не соответствует графу G'",
+        };
       }
 
       // 4. Проверяем, что G' = π(G) через изоморфизм
       if (!originalGraph.isIsomorphicTo(permutedGraph, permutation)) {
-        return false;
+        return {
+          valid: false,
+          errorType: "Несоответствие при проверке изоморфизма",
+        };
       }
 
-      return true;
+      return { valid: true };
     } else {
       // Challenge 1: Проверяем только цикл
       const { cycleEdges } = response;
@@ -120,16 +134,25 @@ export class Verifier {
       // 1. Проверяем, что показано правильное количество рёбер
       // Для гамильтонова цикла в графе с n вершинами должно быть n рёбер
       if (cycleEdges.length !== n) {
-        return false;
+        return {
+          valid: false,
+          errorType: "Неправильное количество рёбер в цикле",
+        };
       }
 
       // 2. Проверяем, что все рёбра валидны (вершины в диапазоне [0..n-1])
       for (const [u, v] of cycleEdges) {
         if (u < 0 || u >= n || v < 0 || v >= n) {
-          return false;
+          return {
+            valid: false,
+            errorType: "Ребро вне допустимого диапазона",
+          };
         }
         if (u === v) {
-          return false;
+          return {
+            valid: false,
+            errorType: "Self-loop недопустим",
+          };
         }
       }
 
@@ -142,12 +165,18 @@ export class Verifier {
       // Строим цикл, начиная с первого ребра
       const cycle = this.edgesToCycle(cycleEdges, n);
       if (cycle === null) {
-        return false;
+        return {
+          valid: false,
+          errorType: "Рёбра не образуют цикл",
+        };
       }
 
       // 5. Проверяем, что это валидный гамильтонов цикл
       if (!isValidHamiltonianCycle(cycle, cycleGraph)) {
-        return false;
+        return {
+          valid: false,
+          errorType: "Предъявленный цикл некорректен",
+        };
       }
 
       // Примечание: В реальном протоколе нужно также проверить коммит к G',
@@ -155,7 +184,7 @@ export class Verifier {
       // Вместо этого мы полагаемся на то, что коммит был проверен при создании,
       // и проверяем только структуру цикла.
 
-      return true;
+      return { valid: true };
     }
   }
 
@@ -241,27 +270,76 @@ export class Verifier {
    * Проверяет полное доказательство (все k раундов)
    * @param proof - Полное доказательство ZKP
    * @param originalGraph - Оригинальный граф G
-   * @returns true, если все раунды прошли проверку
+   * @returns объект с результатом и номером раунда, на котором произошла ошибка (если есть)
    */
-  verifyProof(proof: ZKPProof, originalGraph: Graph): boolean {
+  verifyProof(
+    proof: ZKPProof,
+    originalGraph: Graph
+  ): {
+    valid: boolean;
+    failedRound?: number;
+    errorType?: string;
+  } {
     // Проверяем, что количество раундов соответствует k
     if (proof.rounds.length !== proof.k) {
-      return false;
+      return {
+        valid: false,
+        failedRound: 0,
+        errorType: "Количество раундов не соответствует k",
+      };
     }
 
     // Проверяем каждый раунд
     for (let i = 0; i < proof.rounds.length; i++) {
       const round = proof.rounds[i];
       if (!round) {
-        return false;
+        return {
+          valid: false,
+          failedRound: i + 1,
+          errorType: "Раунд отсутствует",
+        };
       }
 
-      const isValid = this.verifyRound(round, originalGraph);
-      if (!isValid) {
-        return false;
+      const result = this.verifyRound(round, originalGraph, i + 1);
+      if (!result.valid) {
+        const errorMsg = result.errorType || "Неизвестная ошибка";
+        console.error(`❌ ОШИБКА: Раунд ${i + 1} - ${errorMsg}`);
+        return {
+          valid: false,
+          failedRound: i + 1,
+          ...(result.errorType && { errorType: result.errorType }),
+        };
+      }
+      // Логируем успешный раунд и показываем, что раскрыто верификатору
+      const challengeType = round.response.type;
+      console.log(
+        `✓ Раунд ${i + 1} пройден (Challenge ${challengeType}: ${
+          challengeType === 0 ? "показать перестановку" : "показать цикл"
+        })`
+      );
+
+      // Показываем, что доступно верификатору
+      if (challengeType === 0) {
+        const response0 = round.response;
+        if (response0.type === 0) {
+          console.log(
+            `  Раскрыто верификатору: перестановка π = [${response0.permutation.join(
+              ", "
+            )}], все рёбра G' = ${JSON.stringify(response0.permutedGraphEdges)}`
+          );
+        }
+      } else {
+        const response1 = round.response;
+        if (response1.type === 1) {
+          console.log(
+            `  Раскрыто верификатору: рёбра цикла = ${JSON.stringify(
+              response1.cycleEdges
+            )} (перестановка π НЕ раскрыта)`
+          );
+        }
       }
     }
 
-    return true;
+    return { valid: true };
   }
 }
