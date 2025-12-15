@@ -10,10 +10,6 @@ import { openCommitment } from "../utils/commitment.js";
 import { isValidHamiltonianCycle } from "../models/hamiltonian-cycle.js";
 import type { CreateGraphType } from "../utils/read-from-file.js";
 
-/**
- * Verifier в протоколе ZKP для гамильтонова цикла
- * Проверяет доказательство без знания секретного цикла
- */
 export class Verifier {
   private graph: Graph;
 
@@ -21,10 +17,6 @@ export class Verifier {
     this.graph = graph;
   }
 
-  /**
-   * Генерирует случайный challenge (0 или 1)
-   * Использует криптографически стойкий ГСЧ
-   */
   generateChallenge(): Challenge {
     const randomBytes = crypto.randomBytes(1);
     const randomByte = randomBytes[0];
@@ -34,9 +26,6 @@ export class Verifier {
     return (randomByte % 2) as Challenge;
   }
 
-  /**
-   * Проверяет, что перестановка валидна (биекция [0..n-1])
-   */
   private isValidPermutation(permutation: number[], n: number): boolean {
     if (permutation.length !== n) {
       return false;
@@ -45,20 +34,17 @@ export class Verifier {
     const seen = new Set<number>();
     for (const value of permutation) {
       if (value < 0 || value >= n) {
-        return false; // Значение вне диапазона
+        return false;
       }
       if (seen.has(value)) {
-        return false; // Дубликат
+        return false;
       }
       seen.add(value);
     }
 
-    return seen.size === n; // Все значения от 0 до n-1 присутствуют
+    return seen.size === n;
   }
 
-  /**
-   * Восстанавливает граф из массива рёбер
-   */
   private reconstructGraphFromEdges(
     edges: Array<[number, number]>,
     vertexCount: number
@@ -72,13 +58,6 @@ export class Verifier {
     return new Graph(graphData);
   }
 
-  /**
-   * Проверяет один раунд доказательства
-   * @param proofRound - Данные раунда (коммит + ответ)
-   * @param originalGraph - Оригинальный граф G
-   * @param roundNumber - Номер раунда (для логирования)
-   * @returns объект с результатом проверки и типом ошибки (если есть)
-   */
   verifyRound(
     proofRound: ProofRound,
     originalGraph: Graph,
@@ -87,14 +66,11 @@ export class Verifier {
     const { commitment, response } = proofRound;
     const n = originalGraph.getVertexCount();
 
-    // Определяем тип challenge по типу response
     const challengeType = response.type;
 
     if (challengeType === 0) {
-      // Challenge 0: Проверяем перестановку и изоморфизм
       const { permutation, permutedGraphEdges } = response;
 
-      // 1. Проверяем, что перестановка валидна
       if (!this.isValidPermutation(permutation, n)) {
         return {
           valid: false,
@@ -102,14 +78,11 @@ export class Verifier {
         };
       }
 
-      // 2. Восстанавливаем G' из рёбер
       const permutedGraph = this.reconstructGraphFromEdges(
         permutedGraphEdges,
         n
       );
 
-      // 3. Проверяем коммит к G'
-      // Сериализуем граф так же, как в commitToGraph
       const serialized = this.serializeGraph(permutedGraph);
       if (!openCommitment(commitment, serialized)) {
         return {
@@ -118,7 +91,6 @@ export class Verifier {
         };
       }
 
-      // 4. Проверяем, что G' = π(G) через изоморфизм
       if (!originalGraph.isIsomorphicTo(permutedGraph, permutation)) {
         return {
           valid: false,
@@ -128,11 +100,8 @@ export class Verifier {
 
       return { valid: true };
     } else {
-      // Challenge 1: Проверяем только цикл
       const { cycleEdges } = response;
 
-      // 1. Проверяем, что показано правильное количество рёбер
-      // Для гамильтонова цикла в графе с n вершинами должно быть n рёбер
       if (cycleEdges.length !== n) {
         return {
           valid: false,
@@ -140,7 +109,6 @@ export class Verifier {
         };
       }
 
-      // 2. Проверяем, что все рёбра валидны (вершины в диапазоне [0..n-1])
       for (const [u, v] of cycleEdges) {
         if (u < 0 || u >= n || v < 0 || v >= n) {
           return {
@@ -156,13 +124,8 @@ export class Verifier {
         }
       }
 
-      // 3. Восстанавливаем граф из рёбер цикла для проверки
-      // (В реальном протоколе нужно было бы проверить, что рёбра существуют в G',
-      // но G' не раскрыт. Мы проверяем, что рёбра образуют валидный цикл)
       const cycleGraph = this.reconstructGraphFromEdges(cycleEdges, n);
 
-      // 4. Извлекаем цикл из рёбер
-      // Строим цикл, начиная с первого ребра
       const cycle = this.edgesToCycle(cycleEdges, n);
       if (cycle === null) {
         return {
@@ -171,7 +134,6 @@ export class Verifier {
         };
       }
 
-      // 5. Проверяем, что это валидный гамильтонов цикл
       if (!isValidHamiltonianCycle(cycle, cycleGraph)) {
         return {
           valid: false,
@@ -179,19 +141,10 @@ export class Verifier {
         };
       }
 
-      // Примечание: В реальном протоколе нужно также проверить коммит к G',
-      // но так как G' не раскрыт в Challenge 1, мы не можем это сделать напрямую.
-      // Вместо этого мы полагаемся на то, что коммит был проверен при создании,
-      // и проверяем только структуру цикла.
-
       return { valid: true };
     }
   }
 
-  /**
-   * Преобразует массив рёбер в цикл (последовательность вершин)
-   * Возвращает null, если рёбра не образуют цикл
-   */
   private edgesToCycle(
     edges: Array<[number, number]>,
     n: number
@@ -200,7 +153,6 @@ export class Verifier {
       return null;
     }
 
-    // Строим граф смежности из рёбер
     const adjacency = new Map<number, Set<number>>();
     for (let i = 0; i < n; i++) {
       adjacency.set(i, new Set());
@@ -211,7 +163,6 @@ export class Verifier {
       adjacency.get(v)?.add(u);
     }
 
-    // Проверяем, что каждая вершина имеет ровно 2 соседа (условие цикла)
     for (let i = 0; i < n; i++) {
       const neighbors = adjacency.get(i);
       if (!neighbors || neighbors.size !== 2) {
@@ -219,7 +170,6 @@ export class Verifier {
       }
     }
 
-    // Строим цикл, начиная с вершины 0
     const cycle: number[] = [0];
     const visited = new Set<number>();
     visited.add(0);
@@ -230,7 +180,7 @@ export class Verifier {
       const next = neighbors.find((v) => !visited.has(v));
 
       if (next === undefined) {
-        return null; // Не можем продолжить цикл
+        return null;
       }
 
       cycle.push(next);
@@ -238,7 +188,6 @@ export class Verifier {
       current = next;
     }
 
-    // Проверяем, что последняя вершина соединена с первой
     const last = cycle[cycle.length - 1];
     if (last === undefined) {
       return null;
@@ -251,9 +200,6 @@ export class Verifier {
     return cycle;
   }
 
-  /**
-   * Сериализует граф в строку (та же логика, что в commitment.ts)
-   */
   private serializeGraph(graph: Graph): string {
     const edges = graph.getEdges();
     const sortedEdges: Array<[number, number]> = edges
@@ -266,12 +212,6 @@ export class Verifier {
     return sortedEdges.map(([u, v]) => `${u},${v}`).join("|");
   }
 
-  /**
-   * Проверяет полное доказательство (все k раундов)
-   * @param proof - Полное доказательство ZKP
-   * @param originalGraph - Оригинальный граф G
-   * @returns объект с результатом и номером раунда, на котором произошла ошибка (если есть)
-   */
   verifyProof(
     proof: ZKPProof,
     originalGraph: Graph
@@ -280,7 +220,6 @@ export class Verifier {
     failedRound?: number;
     errorType?: string;
   } {
-    // Проверяем, что количество раундов соответствует k
     if (proof.rounds.length !== proof.k) {
       return {
         valid: false,
@@ -289,7 +228,6 @@ export class Verifier {
       };
     }
 
-    // Проверяем каждый раунд
     for (let i = 0; i < proof.rounds.length; i++) {
       const round = proof.rounds[i];
       if (!round) {
@@ -310,7 +248,6 @@ export class Verifier {
           ...(result.errorType && { errorType: result.errorType }),
         };
       }
-      // Логируем успешный раунд и показываем, что раскрыто верификатору
       const challengeType = round.response.type;
       console.log(
         `✓ Раунд ${i + 1} пройден (Challenge ${challengeType}: ${
@@ -318,7 +255,6 @@ export class Verifier {
         })`
       );
 
-      // Показываем, что доступно верификатору
       if (challengeType === 0) {
         const response0 = round.response;
         if (response0.type === 0) {

@@ -1,8 +1,5 @@
 import crypto from "crypto";
 
-/**
- * Быстрое вычисление степени по модулю (a^x mod p)
- */
 export function fastExpMod(
   a: bigint | number,
   x: bigint | number,
@@ -24,9 +21,6 @@ export function fastExpMod(
   return y;
 }
 
-/**
- * Тест простоты Ферма
- */
 export function fermatPrimalityTest(
   n: bigint | number,
   k: number = 50
@@ -45,9 +39,6 @@ export function fermatPrimalityTest(
   return true;
 }
 
-/**
- * Генерация случайного BigInt в диапазоне [min, max]
- */
 export function randomBigInt(
   min: bigint | number,
   max: bigint | number
@@ -65,9 +56,6 @@ export function randomBigInt(
   return result + min;
 }
 
-/**
- * Генерация простого числа в диапазоне [minVal, maxVal]
- */
 export function generatePrime(
   minVal: bigint | number,
   maxVal: bigint | number
@@ -80,9 +68,6 @@ export function generatePrime(
   }
 }
 
-/**
- * Алгоритм Евклида для нахождения НОД
- */
 export function gcd(a: bigint | number, b: bigint | number): bigint {
   let aBig = BigInt(a);
   let bBig = BigInt(b);
@@ -94,10 +79,6 @@ export function gcd(a: bigint | number, b: bigint | number): bigint {
   return aBig;
 }
 
-/**
- * Расширенный алгоритм Евклида для нахождения обратного элемента
- * Возвращает x такое, что (a * x) % m === 1
- */
 export function modInverse(a: bigint | number, m: bigint | number): bigint {
   let aBig = BigInt(a);
   let mBig = BigInt(m);
@@ -123,21 +104,13 @@ export function modInverse(a: bigint | number, m: bigint | number): bigint {
   return x1;
 }
 
-/**
- * Поиск примитивного корня по модулю p
- * g является примитивным корнем, если g^i mod p дает все числа от 1 до p-1
- * @param p - простое число
- * @returns примитивный корень
- */
 export function findPrimitiveRoot(p: bigint | number): bigint {
   p = BigInt(p);
 
-  // Факторизация p-1 для проверки
   const phi = p - 1n;
   const factors: bigint[] = [];
   let temp = phi;
 
-  // Находим простые делители phi
   for (let i = 2n; i * i <= temp; i++) {
     if (temp % i === 0n) {
       factors.push(i);
@@ -150,11 +123,9 @@ export function findPrimitiveRoot(p: bigint | number): bigint {
     factors.push(temp);
   }
 
-  // Проверяем кандидатов на примитивный корень
   for (let g = 2n; g < p; g++) {
     let isPrimitive = true;
 
-    // Проверяем что g^(phi/q) != 1 mod p для всех простых делителей q
     for (const factor of factors) {
       if (fastExpMod(g, phi / factor, p) === 1n) {
         isPrimitive = false;
@@ -167,6 +138,5 @@ export function findPrimitiveRoot(p: bigint | number): bigint {
     }
   }
 
-  // Если не нашли (не должно случиться для простого p)
   return 2n;
 }

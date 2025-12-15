@@ -34,11 +34,6 @@ export const readFromFile = async (
   };
 };
 
-/**
- * Читает гамильтонов цикл из текстового файла
- * Формат: одна строка с последовательностью вершин (0-indexed)
- * Например: "0 1 2 3 4" или "0 1 2 3 4 0"
- */
 export const readCycleFromFile = async (
   filePath: string
 ): Promise<HamiltonianCycle> => {
@@ -49,13 +44,11 @@ export const readCycleFromFile = async (
     throw new Error("Empty file data for Hamiltonian cycle");
   }
 
-  // Берём первую строку как цикл
   const firstLine = lines[0];
   if (!firstLine || firstLine.trim().length === 0) {
     throw new Error("First line must contain cycle vertices");
   }
 
-  // Парсим вершины (они уже в 0-indexed формате)
   const cycle: number[] = firstLine
     .trim()
     .split(/\s+/)
