@@ -18,6 +18,7 @@ export type ProofResponse =
     }
   | {
       type: 1;
+      permutedGraphEdges: Array<[number, number]>;
       cycleEdges: Array<[number, number]>;
     };
 

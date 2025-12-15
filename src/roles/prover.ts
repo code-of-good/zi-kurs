@@ -77,6 +77,7 @@ export class Prover {
 
       return {
         type: 1,
+        permutedGraphEdges: permutedGraph.getEdges(),
         cycleEdges,
       };
     }

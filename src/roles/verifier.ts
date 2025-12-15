@@ -100,7 +100,20 @@ export class Verifier {
 
       return { valid: true };
     } else {
-      const { cycleEdges } = response;
+      const { permutedGraphEdges, cycleEdges } = response;
+
+      const permutedGraph = this.reconstructGraphFromEdges(
+        permutedGraphEdges,
+        n
+      );
+
+      const serialized = this.serializeGraph(permutedGraph);
+      if (!openCommitment(commitment, serialized)) {
+        return {
+          valid: false,
+          errorType: "Коммит не соответствует графу G'",
+        };
+      }
 
       if (cycleEdges.length !== n) {
         return {
@@ -124,7 +137,15 @@ export class Verifier {
         }
       }
 
-      const cycleGraph = this.reconstructGraphFromEdges(cycleEdges, n);
+      // КРИТИЧЕСКАЯ ПРОВЕРКА: все рёбра цикла должны существовать в G'
+      for (const [u, v] of cycleEdges) {
+        if (!permutedGraph.hasEdge(u, v)) {
+          return {
+            valid: false,
+            errorType: `Ребро цикла (${u}, ${v}) не существует в графе G'`,
+          };
+        }
+      }
 
       const cycle = this.edgesToCycle(cycleEdges, n);
       if (cycle === null) {
@@ -134,7 +155,8 @@ export class Verifier {
         };
       }
 
-      if (!isValidHamiltonianCycle(cycle, cycleGraph)) {
+      // Проверяем, что рёбра образуют валидный гамильтонов цикл
+      if (!isValidHamiltonianCycle(cycle, permutedGraph)) {
         return {
           valid: false,
           errorType: "Предъявленный цикл некорректен",
@@ -268,7 +290,9 @@ export class Verifier {
         const response1 = round.response;
         if (response1.type === 1) {
           console.log(
-            `  Раскрыто верификатору: рёбра цикла = ${JSON.stringify(
+            `  Раскрыто верификатору: все рёбра G' = ${JSON.stringify(
+              response1.permutedGraphEdges
+            )}, рёбра цикла = ${JSON.stringify(
               response1.cycleEdges
             )} (перестановка π НЕ раскрыта)`
           );
