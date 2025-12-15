@@ -1,6 +1,6 @@
-import { filePath } from "./constants/path.js";
+import { filePath, cycleFilePath } from "./constants/path.js";
 import { Graph } from "./models/graph.js";
-import { readFromFile } from "./utils/read-from-file.js";
+import { readFromFile, readCycleFromFile } from "./utils/read-from-file.js";
 import { Prover } from "./roles/prover.js";
 import { Verifier } from "./roles/verifier.js";
 import { isValidHamiltonianCycle } from "./models/hamiltonian-cycle.js";
@@ -10,9 +10,8 @@ const main = async () => {
   const graphData = await readFromFile(filePath);
   const graph = new Graph(graphData);
 
-  // 2. Определяем гамильтонов цикл (для графа из example/1.txt)
-  // Граф: 5 вершин, цикл [0, 1, 2, 3, 4]
-  const hamiltonianCycle = [0, 1, 2, 3, 4];
+  // 2. Загружаем гамильтонов цикл из файла
+  const hamiltonianCycle = await readCycleFromFile(cycleFilePath);
 
   const isValid = isValidHamiltonianCycle(hamiltonianCycle, graph);
   if (!isValid) {
