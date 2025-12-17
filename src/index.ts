@@ -25,12 +25,6 @@ const main = async () => {
 
   const prover = new Prover(graph, hamiltonianCycle);
 
-  const { permutedGraph, permutation } = prover.generateCommitment();
-
-  prover.respondToChallenge(0, permutedGraph, permutation);
-
-  prover.respondToChallenge(1, permutedGraph, permutation);
-
   const verifier = new Verifier(graph);
 
   const k = 5;
@@ -38,15 +32,6 @@ const main = async () => {
   for (let i = 0; i < k; i++) {
     challenges.push(verifier.generateChallenge());
   }
-
-  console.log(
-    `Параметры протокола: ${k} раундов (вероятность обмана: 1/2^${k} ≈ ${Math.pow(
-      2,
-      -k
-    )})`
-  );
-
-  console.log();
 
   const proof = prover.generateProof(k, challenges);
 
