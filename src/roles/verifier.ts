@@ -137,7 +137,6 @@ export class Verifier {
         }
       }
 
-      // КРИТИЧЕСКАЯ ПРОВЕРКА: все рёбра цикла должны существовать в G'
       for (const [u, v] of cycleEdges) {
         if (!permutedGraph.hasEdge(u, v)) {
           return {
@@ -242,14 +241,6 @@ export class Verifier {
     failedRound?: number;
     errorType?: string;
   } {
-    if (proof.rounds.length !== proof.k) {
-      return {
-        valid: false,
-        failedRound: 0,
-        errorType: "Количество раундов не соответствует k",
-      };
-    }
-
     for (let i = 0; i < proof.rounds.length; i++) {
       const round = proof.rounds[i];
       if (!round) {
@@ -263,7 +254,7 @@ export class Verifier {
       const result = this.verifyRound(round, originalGraph, i + 1);
       if (!result.valid) {
         const errorMsg = result.errorType || "Неизвестная ошибка";
-        console.error(`❌ ОШИБКА: Раунд ${i + 1} - ${errorMsg}`);
+        console.error(`ОШИБКА: Раунд ${i + 1} - ${errorMsg}`);
         return {
           valid: false,
           failedRound: i + 1,

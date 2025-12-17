@@ -4,6 +4,9 @@ import { readFromFile, readCycleFromFile } from "./utils/read-from-file.js";
 import { Prover } from "./roles/prover.js";
 import { Verifier } from "./roles/verifier.js";
 import { isValidHamiltonianCycle } from "./models/hamiltonian-cycle.js";
+import type { Challenges } from "./types/index.js";
+
+const challengesCount = 5;
 
 const main = async () => {
   const graphData = await readFromFile(filePath);
@@ -24,16 +27,14 @@ const main = async () => {
   console.log();
 
   const prover = new Prover(graph, hamiltonianCycle);
-
   const verifier = new Verifier(graph);
 
-  const k = 5;
-  const challenges: (0 | 1)[] = [];
-  for (let i = 0; i < k; i++) {
+  const challenges: Challenges = [];
+  for (let i = 0; i < challengesCount; i++) {
     challenges.push(verifier.generateChallenge());
   }
 
-  const proof = prover.generateProof(k, challenges);
+  const proof = prover.generateProof(challengesCount, challenges);
 
   const result = verifier.verifyProof(proof, graph);
 
