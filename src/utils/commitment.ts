@@ -1,6 +1,11 @@
 import crypto from "crypto";
-import type { Commitment } from "../models/zkp-types.js";
 import type { Graph } from "../models/graph.js";
+
+// Старый тип Commitment больше не используется, но оставляем функции для совместимости
+export interface Commitment {
+  hash: string;
+  salt: string;
+}
 
 export function createCommitment(data: string): Commitment {
   const salt = crypto.randomBytes(32).toString("hex");

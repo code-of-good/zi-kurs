@@ -6,9 +6,10 @@ import type {
   ProofResponse,
   ZKPProof,
 } from "../models/zkp-types.js";
-import { openCommitment } from "../utils/commitment.js";
 import { isValidHamiltonianCycle } from "../models/hamiltonian-cycle.js";
 import type { CreateGraphType } from "../utils/read-from-file.js";
+import { rsaEncrypt } from "../utils/crypto.js";
+import { decodeMatrix, getAdjacencyMatrix } from "../utils/matrix.js";
 
 export class Verifier {
   private graph: Graph;
@@ -58,19 +59,31 @@ export class Verifier {
     return new Graph(graphData);
   }
 
+  /**
+   * Шаг 4: Проверяет правильность расшифровки путем повторного шифрования
+   * @param proofRound раунд доказательства
+   * @param originalGraph исходный граф G
+   * @param roundNumber номер раунда
+   */
   verifyRound(
     proofRound: ProofRound,
     originalGraph: Graph,
     roundNumber: number
   ): { valid: boolean; errorType?: string } {
-    const { commitment, response } = proofRound;
+    const { encryptedMatrix, response } = proofRound;
     const n = originalGraph.getVertexCount();
+
+    // Получаем публичный ключ RSA
+    const N = BigInt(encryptedMatrix.publicKey.N);
+    const e = BigInt(encryptedMatrix.publicKey.e);
 
     const challengeType = response.type;
 
     if (challengeType === 0) {
-      const { permutation, permutedGraphEdges } = response;
+      // Challenge 0: Проверяем перестановку и полную расшифровку графа Н
+      const { permutation, decryptedMatrix, randomNumbers } = response;
 
+      // 1. Проверяем валидность перестановки
       if (!this.isValidPermutation(permutation, n)) {
         return {
           valid: false,
@@ -78,43 +91,60 @@ export class Verifier {
         };
       }
 
-      const permutedGraph = this.reconstructGraphFromEdges(
-        permutedGraphEdges,
-        n
-      );
+      // 2. Проверяем правильность расшифровки путем повторного шифрования
+      // В протоколе используется схема подписи RSA:
+      // - Алиса "подписывает" (шифрует приватным ключом d): Fij = (H'ij)^d mod N
+      // - Боб проверяет (расшифровывает публичным ключом e): (Fij)^e mod N == H'ij
+      for (let i = 0; i < n; i++) {
+        const decryptedRow = decryptedMatrix[i];
+        const encryptedRow = encryptedMatrix.matrix[i];
+        if (!decryptedRow || !encryptedRow) {
+          return {
+            valid: false,
+            errorType: `Отсутствует строка ${i} в матрице`,
+          };
+        }
+        for (let j = 0; j < n; j++) {
+          const decryptedValue = decryptedRow[j]; // H'ij
+          const encryptedValue = encryptedRow[j]; // Fij
+          if (decryptedValue === undefined || encryptedValue === undefined) {
+            return {
+              valid: false,
+              errorType: `Отсутствует элемент [${i}, ${j}] в матрице`,
+            };
+          }
 
-      const serialized = this.serializeGraph(permutedGraph);
-      if (!openCommitment(commitment, serialized)) {
-        return {
-          valid: false,
-          errorType: "Коммит не соответствует графу G'",
-        };
+          // Проверяем: (Fij)^e mod N == H'ij
+          const verified = rsaEncrypt(encryptedValue, e, N);
+          if (verified !== decryptedValue) {
+            return {
+              valid: false,
+              errorType: `Несоответствие при проверке расшифровки для элемента [${i}, ${j}]`,
+            };
+          }
+        }
       }
 
+      // 3. Декодируем матрицу, извлекая исходные значения (0 или 1)
+      const adjacencyMatrix = decodeMatrix(decryptedMatrix, randomNumbers);
+
+      // 4. Восстанавливаем граф Н из матрицы смежности
+      const permutedGraph = this.reconstructGraphFromMatrix(adjacencyMatrix, n);
+
+      // 5. Проверяем изоморфизм: Н = π(G)
       if (!originalGraph.isIsomorphicTo(permutedGraph, permutation)) {
         return {
           valid: false,
-          errorType: "Несоответствие при проверке изоморфизма",
+          errorType: "Граф Н не изоморфен G с данной перестановкой",
         };
       }
 
       return { valid: true };
     } else {
-      const { permutedGraphEdges, cycleEdges } = response;
+      // Challenge 1: Проверяем гамильтонов цикл
+      const { cycleEdges, decryptedCycleElements, randomNumbers } = response;
 
-      const permutedGraph = this.reconstructGraphFromEdges(
-        permutedGraphEdges,
-        n
-      );
-
-      const serialized = this.serializeGraph(permutedGraph);
-      if (!openCommitment(commitment, serialized)) {
-        return {
-          valid: false,
-          errorType: "Коммит не соответствует графу G'",
-        };
-      }
-
+      // 1. Проверяем количество рёбер
       if (cycleEdges.length !== n) {
         return {
           valid: false,
@@ -122,6 +152,7 @@ export class Verifier {
         };
       }
 
+      // 2. Проверяем валидность рёбер
       for (const [u, v] of cycleEdges) {
         if (u < 0 || u >= n || v < 0 || v >= n) {
           return {
@@ -137,30 +168,89 @@ export class Verifier {
         }
       }
 
+      // 3. Проверяем правильность расшифровки для каждого ребра цикла
+      // Создаем мапу для быстрого доступа к расшифрованным значениям
+      const decryptedMap = new Map<string, bigint>();
+      const randomMap = new Map<string, bigint>();
+
+      for (const elem of decryptedCycleElements) {
+        const key = `${elem.i},${elem.j}`;
+        decryptedMap.set(key, elem.value);
+      }
+
+      for (const elem of randomNumbers) {
+        const key = `${elem.i},${elem.j}`;
+        randomMap.set(key, elem.value);
+      }
+
       for (const [u, v] of cycleEdges) {
-        if (!permutedGraph.hasEdge(u, v)) {
+        const key = `${u},${v}`;
+        const decryptedValue = decryptedMap.get(key);
+
+        if (decryptedValue === undefined) {
           return {
             valid: false,
-            errorType: `Ребро цикла (${u}, ${v}) не существует в графе G'`,
+            errorType: `Отсутствует расшифрованное значение для ребра (${u}, ${v})`,
+          };
+        }
+
+        // Проверяем правильность расшифровки
+        const encryptedRow = encryptedMatrix.matrix[u];
+        if (!encryptedRow) {
+          return {
+            valid: false,
+            errorType: `Отсутствует строка ${u} в зашифрованной матрице`,
+          };
+        }
+        const encryptedValue = encryptedRow[v];
+        if (encryptedValue === undefined) {
+          return {
+            valid: false,
+            errorType: `Отсутствует элемент [${u}, ${v}] в зашифрованной матрице`,
+          };
+        }
+        // Проверяем: (Fij)^e mod N == H'ij
+        const verified = rsaEncrypt(encryptedValue, e, N);
+        if (verified !== decryptedValue) {
+          return {
+            valid: false,
+            errorType: `Несоответствие при проверке расшифровки для ребра (${u}, ${v})`,
+          };
+        }
+
+        // Проверяем, что ребро действительно существует (Hij = 1)
+        const randomValue = randomMap.get(key);
+        if (randomValue === undefined) {
+          return {
+            valid: false,
+            errorType: `Отсутствует случайное число для ребра (${u}, ${v})`,
+          };
+        }
+
+        // Декодируем: Hij = H'ij mod 2
+        const hij = Number(decryptedValue % 2n);
+        if (hij !== 1) {
+          return {
+            valid: false,
+            errorType: `Ребро (${u}, ${v}) не существует в графе (Hij = ${hij}, ожидается 1)`,
           };
         }
       }
 
+      // 4. Проверяем, что рёбра образуют валидный гамильтонов цикл
       const cycle = this.edgesToCycle(cycleEdges, n);
       if (cycle === null) {
         return {
           valid: false,
-          errorType: "Рёбра не образуют цикл",
+          errorType: "Рёбра не образуют валидный гамильтонов цикл",
         };
       }
 
-      // Проверяем, что рёбра образуют валидный гамильтонов цикл
-      if (!isValidHamiltonianCycle(cycle, permutedGraph)) {
-        return {
-          valid: false,
-          errorType: "Предъявленный цикл некорректен",
-        };
-      }
+      // edgesToCycle уже проверил, что:
+      // - все вершины покрыты (цикл длины n)
+      // - каждая вершина имеет ровно 2 соседа
+      // - цикл замкнут (последняя вершина соединена с первой)
+      // Дополнительно мы проверили выше, что все рёбра правильно расшифрованы и существуют (Hij = 1)
 
       return { valid: true };
     }
@@ -221,16 +311,34 @@ export class Verifier {
     return cycle;
   }
 
-  private serializeGraph(graph: Graph): string {
-    const edges = graph.getEdges();
-    const sortedEdges: Array<[number, number]> = edges
-      .map(([u, v]) => (u < v ? [u, v] : [v, u]) as [number, number])
-      .sort(([u1, v1], [u2, v2]) => {
-        if (u1 !== u2) return u1 - u2;
-        return v1 - v2;
-      });
+  /**
+   * Восстанавливает граф из матрицы смежности
+   */
+  private reconstructGraphFromMatrix(
+    adjacencyMatrix: number[][],
+    vertexCount: number
+  ): Graph {
+    const edges: number[][] = [];
 
-    return sortedEdges.map(([u, v]) => `${u},${v}`).join("|");
+    for (let i = 0; i < vertexCount; i++) {
+      const row = adjacencyMatrix[i];
+      if (!row) {
+        continue;
+      }
+      for (let j = i + 1; j < vertexCount; j++) {
+        if (row[j] === 1) {
+          edges.push([i, j]);
+        }
+      }
+    }
+
+    const graphData: CreateGraphType = {
+      vertexCount,
+      edgeCount: edges.length,
+      edges,
+    };
+
+    return new Graph(graphData);
   }
 
   verifyProof(
@@ -261,7 +369,14 @@ export class Verifier {
           ...(result.errorType && { errorType: result.errorType }),
         };
       }
-      const challengeType = round.response.type;
+      const challengeType = round.response?.type;
+      if (challengeType === undefined) {
+        return {
+          valid: false,
+          failedRound: i + 1,
+          errorType: "Отсутствует response в раунде",
+        };
+      }
       console.log(
         `✓ Раунд ${i + 1} пройден (Challenge ${challengeType}: ${
           challengeType === 0 ? "показать перестановку" : "показать цикл"
@@ -274,16 +389,14 @@ export class Verifier {
           console.log(
             `  Раскрыто верификатору: перестановка π = [${response0.permutation.join(
               ", "
-            )}], все рёбра G' = ${JSON.stringify(response0.permutedGraphEdges)}`
+            )}], полностью расшифрован граф Н (перестановка π раскрыта)`
           );
         }
       } else {
         const response1 = round.response;
         if (response1.type === 1) {
           console.log(
-            `  Раскрыто верификатору: все рёбра G' = ${JSON.stringify(
-              response1.permutedGraphEdges
-            )}, рёбра цикла = ${JSON.stringify(
+            `  Раскрыто верификатору: рёбра гамильтонова цикла = ${JSON.stringify(
               response1.cycleEdges
             )} (перестановка π НЕ раскрыта)`
           );

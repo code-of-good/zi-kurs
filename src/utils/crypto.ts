@@ -140,3 +140,62 @@ export function findPrimitiveRoot(p: bigint | number): bigint {
 
   return 2n;
 }
+
+export interface RSAKeys {
+  N: bigint; // модуль (p * q)
+  e: bigint; // публичная экспонента
+  d: bigint; // приватная экспонента
+  p: bigint; // первый простой множитель
+  q: bigint; // второй простой множитель
+}
+
+/**
+ * Генерирует RSA ключи для шифрования
+ * @param bitLength длина простых чисел в битах (по умолчанию 512, итого N ~ 1024 бита)
+ * @returns RSA ключи {N, e, d, p, q}
+ */
+export function generateRSAKeys(bitLength: number = 512): RSAKeys {
+  // Генерируем два больших простых числа
+  const minPrime = 2n ** BigInt(bitLength - 1);
+  const maxPrime = 2n ** BigInt(bitLength) - 1n;
+
+  let p = generatePrime(minPrime, maxPrime);
+  let q = generatePrime(minPrime, maxPrime);
+
+  // Убеждаемся, что p != q
+  while (p === q) {
+    q = generatePrime(minPrime, maxPrime);
+  }
+
+  const N = p * q;
+  const phiN = (p - 1n) * (q - 1n);
+
+  // Выбираем публичную экспоненту e (обычно 65537)
+  let e = 65537n;
+  if (e >= phiN || gcd(e, phiN) !== 1n) {
+    // Если 65537 не подходит, ищем другое
+    e = 3n;
+    while (e < phiN && gcd(e, phiN) !== 1n) {
+      e += 2n;
+    }
+  }
+
+  // Вычисляем приватную экспоненту d
+  const d = modInverse(e, phiN);
+
+  return { N, e, d, p, q };
+}
+
+/**
+ * RSA шифрование: c = m^e mod N
+ */
+export function rsaEncrypt(message: bigint, e: bigint, N: bigint): bigint {
+  return fastExpMod(message, e, N);
+}
+
+/**
+ * RSA расшифрование: m = c^d mod N
+ */
+export function rsaDecrypt(ciphertext: bigint, d: bigint, N: bigint): bigint {
+  return fastExpMod(ciphertext, d, N);
+}
