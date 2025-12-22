@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import type { Graph } from "../models/graph.js";
-import { rsaEncrypt, type RSAKeys } from "./crypto.js";
+import { rsaEncrypt, rsaDecrypt, type RSAKeys } from "./crypto.js";
 
 /**
  * Получает матрицу смежности графа
@@ -73,13 +73,9 @@ export function encodeMatrixWithRandom(
 /**
  * Декодирует закодированную матрицу, извлекая исходные значения
  * @param encodedMatrix закодированная матрица
- * @param randomNumbers случайные числа, использованные при кодировании
  * @returns исходная матрица смежности (0 или 1)
  */
-export function decodeMatrix(
-  encodedMatrix: bigint[][],
-  randomNumbers: bigint[][]
-): number[][] {
+export function decodeMatrix(encodedMatrix: bigint[][]): number[][] {
   const n = encodedMatrix.length;
   const matrix: number[][] = [];
 
@@ -136,4 +132,38 @@ export function encryptMatrix(
   }
 
   return encryptedMatrix;
+}
+
+/**
+ * Расшифровывает зашифрованную матрицу с помощью RSA
+ * H'ij = (Fij)^e mod N (используется публичный ключ e для расшифровки)
+ * @param encryptedMatrix зашифрованная матрица F
+ * @param keys RSA ключи (используется e и N)
+ * @returns расшифрованная закодированная матрица H'
+ */
+export function decryptMatrix(
+  encryptedMatrix: bigint[][],
+  keys: RSAKeys
+): bigint[][] {
+  const n = encryptedMatrix.length;
+  const decryptedMatrix: bigint[][] = [];
+
+  for (let i = 0; i < n; i++) {
+    const decryptedRow: bigint[] = [];
+    const encryptedRow = encryptedMatrix[i];
+    if (!encryptedRow) {
+      throw new Error(`Encrypted matrix row ${i} is undefined`);
+    }
+    for (let j = 0; j < n; j++) {
+      // H'ij = (Fij)^e mod N (расшифровка публичным ключом)
+      const encryptedValue = encryptedRow[j];
+      if (encryptedValue === undefined) {
+        throw new Error(`Encrypted matrix value at [${i}, ${j}] is undefined`);
+      }
+      decryptedRow[j] = rsaEncrypt(encryptedValue, keys.e, keys.N);
+    }
+    decryptedMatrix[i] = decryptedRow;
+  }
+
+  return decryptedMatrix;
 }

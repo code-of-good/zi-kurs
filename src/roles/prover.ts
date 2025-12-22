@@ -11,11 +11,12 @@ import {
   applyPermutationToGraph,
   applyPermutationToCycle,
 } from "../utils/permutation.js";
-import { generateRSAKeys, type RSAKeys } from "../utils/crypto.js";
+import { generateRSAKeys, rsaEncrypt, type RSAKeys } from "../utils/crypto.js";
 import {
   getAdjacencyMatrix,
   encodeMatrixWithRandom,
   encryptMatrix,
+  decryptMatrix,
 } from "../utils/matrix.js";
 
 /**
@@ -86,30 +87,30 @@ export class Prover {
   /**
    * Шаг 3: Отвечает на challenge от Боба
    * @param challenge 0 - показать перестановку и граф Н, 1 - показать гамильтонов цикл
-   * @param permutedGraph граф Н
+   * @param encryptedMatrix зашифрованная матрица F
    * @param permutation перестановка вершин
    * @param keys RSA ключи
-   * @param encodedMatrix закодированная матрица H'
    * @param randomNumbers случайные числа rij
    */
   respondToChallenge(
     challenge: Challenge,
-    permutedGraph: Graph,
+    encryptedMatrix: EncryptedMatrix,
     permutation: number[],
     keys: RSAKeys,
-    encodedMatrix: bigint[][],
     randomNumbers: bigint[][]
   ): ProofResponse {
     if (challenge === 0) {
-      // Challenge 0: Показать перестановку и полностью расшифровать граф Н
+      // Challenge 0: Расшифровываем F полностью, получая H'
+      const decryptedMatrix = decryptMatrix(encryptedMatrix.matrix, keys);
+
       return {
         type: 0,
         permutation: [...permutation],
-        decryptedMatrix: encodedMatrix, // Передаем закодированную матрицу H' (не исходную)
+        decryptedMatrix: decryptedMatrix, // Расшифрованная закодированная матрица H'
         randomNumbers: randomNumbers, // Передаем случайные числа rij
       };
     } else {
-      // Challenge 1: Показать гамильтонов цикл (расшифровать только рёбра цикла)
+      // Challenge 1: Расшифровываем в F только рёбра, образующие гамильтонов цикл
       const permutedCycle = applyPermutationToCycle(
         this.hamiltonianCycle,
         permutation
@@ -141,20 +142,28 @@ export class Prover {
         const v = current < next ? next : current;
         cycleEdges.push([u, v]);
 
-        // Добавляем расшифрованные значения для рёбер цикла
-        const encodedValue = encodedMatrix[u]?.[v];
-        const randomValue = randomNumbers[u]?.[v];
+        // Расшифровываем в F ребро цикла: H'ij = (Fij)^d mod N
+        const encryptedRow = encryptedMatrix.matrix[u];
+        if (!encryptedRow) {
+          throw new Error(`Missing encrypted row ${u}`);
+        }
+        const encryptedValue = encryptedRow[v];
+        if (encryptedValue === undefined) {
+          throw new Error(`Missing encrypted value at [${u}, ${v}]`);
+        }
 
-        if (encodedValue === undefined || randomValue === undefined) {
-          throw new Error(
-            `Missing encoded value or random number for edge (${u}, ${v})`
-          );
+        // Расшифровываем Fij, получая H'ij: H'ij = (Fij)^e mod N
+        const decryptedValue = rsaEncrypt(encryptedValue, keys.e, keys.N);
+
+        const randomValue = randomNumbers[u]?.[v];
+        if (randomValue === undefined) {
+          throw new Error(`Missing random number for edge (${u}, ${v})`);
         }
 
         decryptedCycleElements.push({
           i: u,
           j: v,
-          value: encodedValue,
+          value: decryptedValue,
         });
         cycleRandomNumbers.push({
           i: u,
@@ -202,13 +211,12 @@ export class Prover {
         throw new Error(`Challenge at index ${i} is undefined`);
       }
 
-      // Шаг 3: Отвечаем на challenge
+      // Шаг 3: Отвечаем на challenge (расшифровываем F)
       const response = this.respondToChallenge(
         challenge,
-        permutedGraph,
+        encryptedMatrix,
         permutation,
         keys,
-        encodedMatrix,
         randomNumbers
       );
 

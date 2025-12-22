@@ -126,7 +126,7 @@ export class Verifier {
       }
 
       // 3. Декодируем матрицу, извлекая исходные значения (0 или 1)
-      const adjacencyMatrix = decodeMatrix(decryptedMatrix, randomNumbers);
+      const adjacencyMatrix = decodeMatrix(decryptedMatrix);
 
       // 4. Восстанавливаем граф Н из матрицы смежности
       const permutedGraph = this.reconstructGraphFromMatrix(adjacencyMatrix, n);
@@ -171,16 +171,10 @@ export class Verifier {
       // 3. Проверяем правильность расшифровки для каждого ребра цикла
       // Создаем мапу для быстрого доступа к расшифрованным значениям
       const decryptedMap = new Map<string, bigint>();
-      const randomMap = new Map<string, bigint>();
 
       for (const elem of decryptedCycleElements) {
         const key = `${elem.i},${elem.j}`;
         decryptedMap.set(key, elem.value);
-      }
-
-      for (const elem of randomNumbers) {
-        const key = `${elem.i},${elem.j}`;
-        randomMap.set(key, elem.value);
       }
 
       for (const [u, v] of cycleEdges) {
@@ -219,14 +213,6 @@ export class Verifier {
         }
 
         // Проверяем, что ребро действительно существует (Hij = 1)
-        const randomValue = randomMap.get(key);
-        if (randomValue === undefined) {
-          return {
-            valid: false,
-            errorType: `Отсутствует случайное число для ребра (${u}, ${v})`,
-          };
-        }
-
         // Декодируем: Hij = H'ij mod 2
         const hij = Number(decryptedValue % 2n);
         if (hij !== 1) {
