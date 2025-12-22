@@ -19,7 +19,6 @@ export interface ResponseType0 {
   type: 0;
   permutation: number[]; // перестановка вершин
   decryptedMatrix: bigint[][]; // расшифрованная закодированная матрица H'
-  randomNumbers: bigint[][]; // случайные числа rij, использованные при кодировании
 }
 
 /**
@@ -32,11 +31,6 @@ export interface ResponseType1 {
     i: number;
     j: number;
     value: bigint; // расшифрованное значение H'ij для рёбер цикла
-  }>;
-  randomNumbers: Array<{
-    i: number;
-    j: number;
-    value: bigint; // случайное число rij для рёбер цикла
   }>;
 }
 

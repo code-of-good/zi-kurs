@@ -90,14 +90,12 @@ export class Prover {
    * @param encryptedMatrix зашифрованная матрица F
    * @param permutation перестановка вершин
    * @param keys RSA ключи
-   * @param randomNumbers случайные числа rij
    */
   respondToChallenge(
     challenge: Challenge,
     encryptedMatrix: EncryptedMatrix,
     permutation: number[],
-    keys: RSAKeys,
-    randomNumbers: bigint[][]
+    keys: RSAKeys
   ): ProofResponse {
     if (challenge === 0) {
       // Challenge 0: Расшифровываем F полностью, получая H'
@@ -107,7 +105,6 @@ export class Prover {
         type: 0,
         permutation: [...permutation],
         decryptedMatrix: decryptedMatrix, // Расшифрованная закодированная матрица H'
-        randomNumbers: randomNumbers, // Передаем случайные числа rij
       };
     } else {
       // Challenge 1: Расшифровываем в F только рёбра, образующие гамильтонов цикл
@@ -119,11 +116,6 @@ export class Prover {
       // Формируем рёбра цикла
       const cycleEdges: Array<[number, number]> = [];
       const decryptedCycleElements: Array<{
-        i: number;
-        j: number;
-        value: bigint;
-      }> = [];
-      const cycleRandomNumbers: Array<{
         i: number;
         j: number;
         value: bigint;
@@ -155,20 +147,10 @@ export class Prover {
         // Расшифровываем Fij, получая H'ij: H'ij = (Fij)^e mod N
         const decryptedValue = rsaEncrypt(encryptedValue, keys.e, keys.N);
 
-        const randomValue = randomNumbers[u]?.[v];
-        if (randomValue === undefined) {
-          throw new Error(`Missing random number for edge (${u}, ${v})`);
-        }
-
         decryptedCycleElements.push({
           i: u,
           j: v,
           value: decryptedValue,
-        });
-        cycleRandomNumbers.push({
-          i: u,
-          j: v,
-          value: randomValue,
         });
       }
 
@@ -176,7 +158,6 @@ export class Prover {
         type: 1,
         cycleEdges,
         decryptedCycleElements,
-        randomNumbers: cycleRandomNumbers,
       };
     }
   }
@@ -216,8 +197,7 @@ export class Prover {
         challenge,
         encryptedMatrix,
         permutation,
-        keys,
-        randomNumbers
+        keys
       );
 
       rounds.push({

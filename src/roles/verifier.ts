@@ -81,7 +81,7 @@ export class Verifier {
 
     if (challengeType === 0) {
       // Challenge 0: Проверяем перестановку и полную расшифровку графа Н
-      const { permutation, decryptedMatrix, randomNumbers } = response;
+      const { permutation, decryptedMatrix } = response;
 
       // 1. Проверяем валидность перестановки
       if (!this.isValidPermutation(permutation, n)) {
@@ -142,7 +142,7 @@ export class Verifier {
       return { valid: true };
     } else {
       // Challenge 1: Проверяем гамильтонов цикл
-      const { cycleEdges, decryptedCycleElements, randomNumbers } = response;
+      const { cycleEdges, decryptedCycleElements } = response;
 
       // 1. Проверяем количество рёбер
       if (cycleEdges.length !== n) {
