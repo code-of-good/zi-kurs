@@ -16,7 +16,6 @@ import {
   getAdjacencyMatrix,
   encodeMatrixWithRandom,
   encryptMatrix,
-  decryptMatrix,
 } from "../utils/matrix.js";
 
 /**

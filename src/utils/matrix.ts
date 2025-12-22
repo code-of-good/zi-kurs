@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import type { Graph } from "../models/graph.js";
-import { rsaEncrypt, rsaDecrypt, type RSAKeys } from "./crypto.js";
+import { rsaEncrypt, type RSAKeys } from "./crypto.js";
 
 /**
  * Получает матрицу смежности графа
@@ -136,83 +136,4 @@ export function encryptMatrix(
   }
 
   return encryptedMatrix;
-}
-
-/**
- * Расшифровывает зашифрованную матрицу с помощью RSA
- * H'ij = (Fij)^e mod N
- * @param encryptedMatrix зашифрованная матрица F
- * @param keys RSA ключи (используется e и N)
- * @returns расшифрованная закодированная матрица H'
- */
-export function decryptMatrix(
-  encryptedMatrix: bigint[][],
-  keys: RSAKeys
-): bigint[][] {
-  const n = encryptedMatrix.length;
-  const decryptedMatrix: bigint[][] = [];
-
-  for (let i = 0; i < n; i++) {
-    const decryptedRow: bigint[] = [];
-    const encryptedRow = encryptedMatrix[i];
-    if (!encryptedRow) {
-      throw new Error(`Encrypted matrix row ${i} is undefined`);
-    }
-    for (let j = 0; j < n; j++) {
-      // H'ij = (Fij)^e mod N
-      const encryptedValue = encryptedRow[j];
-      if (encryptedValue === undefined) {
-        throw new Error(`Encrypted matrix value at [${i}, ${j}] is undefined`);
-      }
-      decryptedRow[j] = rsaDecrypt(encryptedValue, keys.e, keys.N);
-    }
-    decryptedMatrix[i] = decryptedRow;
-  }
-
-  return decryptedMatrix;
-}
-
-/**
- * Проверяет, что расшифрованная матрица соответствует зашифрованной
- * путем повторного шифрования
- * @param decryptedMatrix расшифрованная матрица H'
- * @param encryptedMatrix исходная зашифрованная матрица F
- * @param keys RSA ключи
- * @returns true, если проверка прошла успешно
- */
-export function verifyDecryption(
-  decryptedMatrix: bigint[][],
-  encryptedMatrix: bigint[][],
-  keys: RSAKeys
-): boolean {
-  const n = decryptedMatrix.length;
-
-  if (encryptedMatrix.length !== n) {
-    return false;
-  }
-
-  for (let i = 0; i < n; i++) {
-    const decryptedRow = decryptedMatrix[i];
-    const encryptedRow = encryptedMatrix[i];
-    if (!decryptedRow || !encryptedRow) {
-      return false;
-    }
-    if (decryptedRow.length !== n || encryptedRow.length !== n) {
-      return false;
-    }
-    for (let j = 0; j < n; j++) {
-      // Проверяем: Fij == (H'ij)^d mod N
-      const decryptedValue = decryptedRow[j];
-      const encryptedValue = encryptedRow[j];
-      if (decryptedValue === undefined || encryptedValue === undefined) {
-        return false;
-      }
-      const reEncrypted = rsaEncrypt(decryptedValue, keys.d, keys.N);
-      if (reEncrypted !== encryptedValue) {
-        return false;
-      }
-    }
-  }
-
-  return true;
 }

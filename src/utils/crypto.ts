@@ -104,43 +104,6 @@ export function modInverse(a: bigint | number, m: bigint | number): bigint {
   return x1;
 }
 
-export function findPrimitiveRoot(p: bigint | number): bigint {
-  p = BigInt(p);
-
-  const phi = p - 1n;
-  const factors: bigint[] = [];
-  let temp = phi;
-
-  for (let i = 2n; i * i <= temp; i++) {
-    if (temp % i === 0n) {
-      factors.push(i);
-      while (temp % i === 0n) {
-        temp = temp / i;
-      }
-    }
-  }
-  if (temp > 1n) {
-    factors.push(temp);
-  }
-
-  for (let g = 2n; g < p; g++) {
-    let isPrimitive = true;
-
-    for (const factor of factors) {
-      if (fastExpMod(g, phi / factor, p) === 1n) {
-        isPrimitive = false;
-        break;
-      }
-    }
-
-    if (isPrimitive) {
-      return g;
-    }
-  }
-
-  return 2n;
-}
-
 export interface RSAKeys {
   N: bigint; // модуль (p * q)
   e: bigint; // публичная экспонента

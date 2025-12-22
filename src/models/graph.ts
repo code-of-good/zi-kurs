@@ -14,13 +14,11 @@ export class Graph {
       this.adjacencyList.set(i, new Set());
     }
 
-    const edges: Array<[number, number]> = inputEdges
-      .filter((edge: number[]) => edge.length >= 2)
-      .map((edge: number[]) => {
-        const u = edge[0] ?? 0;
-        const v = edge[1] ?? 0;
-        return [u, v];
-      });
+    const edges: Array<[number, number]> = inputEdges.map((edge: number[]) => {
+      const u = edge[0] ?? 0;
+      const v = edge[1] ?? 0;
+      return [u, v];
+    });
 
     for (const [u, v] of edges) {
       this.addEdge(u, v);
